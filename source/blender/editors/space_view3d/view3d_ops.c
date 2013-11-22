@@ -169,6 +169,7 @@ void view3d_operatortypes(void)
 	WM_operatortype_append(VIEW3D_OT_localview);
 	WM_operatortype_append(VIEW3D_OT_game_start);
 	WM_operatortype_append(VIEW3D_OT_fly);
+	WM_operatortype_append(VIEW3D_OT_fps);
 	WM_operatortype_append(VIEW3D_OT_ruler);
 	WM_operatortype_append(VIEW3D_OT_layers);
 	WM_operatortype_append(VIEW3D_OT_copybuffer);
@@ -221,7 +222,11 @@ void view3d_keymap(wmKeyConfig *keyconf)
 	WM_keymap_verify_item(keymap, "VIEW3D_OT_view_lock_to_active", PADPERIOD, KM_PRESS, KM_SHIFT, 0);
 	WM_keymap_verify_item(keymap, "VIEW3D_OT_view_lock_clear", PADPERIOD, KM_PRESS, KM_ALT, 0);
 
-	WM_keymap_verify_item(keymap, "VIEW3D_OT_fly", FKEY, KM_PRESS, KM_SHIFT, 0);
+	WM_keymap_verify_item(keymap, "VIEW3D_OT_fps", FKEY, KM_PRESS, KM_SHIFT, 0);
+	WM_keymap_verify_item(keymap, "VIEW3D_OT_fly", FKEY, KM_PRESS, KM_CTRL | KM_SHIFT, 0);
+#ifdef __APPLE__
+	WM_keymap_verify_item(keymap, "VIEW3D_OT_fly", FKEY, KM_PRESS, KM_OSKEY | KM_SHIFT, 0);
+#endif
 
 	WM_keymap_verify_item(keymap, "VIEW3D_OT_smoothview", TIMER1, KM_ANY, KM_ANY, 0);
 	
@@ -501,6 +506,7 @@ void view3d_keymap(wmKeyConfig *keyconf)
 	transform_keymap_for_space(keyconf, keymap, SPACE_VIEW3D);
 
 	fly_modal_keymap(keyconf);
+	fps_modal_keymap(keyconf);
 	viewrotate_modal_keymap(keyconf);
 	viewmove_modal_keymap(keyconf);
 	viewzoom_modal_keymap(keyconf);
