@@ -351,9 +351,11 @@ static bool initFlyInfo(bContext *C, FlyInfo *fly, wmOperator *op, const wmEvent
 		fly->zlock = FLY_AXISLOCK_STATE_IDLE;
 	}
 
+	/* borrowing U.walk_navigation.flag while we have
+	   no settings to justify having a U.fly_navigation */
 	fly->v3d_camera_control = ED_view3d_cameracontrol_aquire(
 	        fly->scene, fly->v3d, fly->rv3d,
-	        (U.uiflag & USER_CAM_LOCK_NO_PARENT) == 0);
+	        (U.walk_navigation.flag & USER_WALK_MOVE_PARENT));
 
 	/* calculate center */
 	if (fly->scene->camera) {

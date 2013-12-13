@@ -580,6 +580,7 @@ typedef enum eViewNavigation_Method {
 typedef enum eWalkNavigation_Flag {
 	USER_WALK_GRAVITY			= (1 << 0),
 	USER_WALK_MOUSE_REVERSE		= (1 << 1),
+	USER_WALK_MOVE_PARENT		= (1 << 2),
 } eWalkNavigation_Flag;
 
 /* uiflag */
@@ -601,7 +602,7 @@ typedef enum eUserpref_UI_Flag {
 	USER_HIDE_DOT			= (1 << 16),
 	USER_SHOW_ROTVIEWICON	= (1 << 17),
 	USER_SHOW_VIEWPORTNAME	= (1 << 18),
-	USER_CAM_LOCK_NO_PARENT	= (1 << 19),
+	/* flag 19 no longer used */
 	USER_ZOOM_TO_MOUSEPOS	= (1 << 20),
 	USER_SHOW_FPS			= (1 << 21),
 	USER_MMB_PASTE			= (1 << 22),

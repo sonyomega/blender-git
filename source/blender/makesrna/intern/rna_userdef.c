@@ -2980,6 +2980,12 @@ static void rna_def_userdef_walk_navigation(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "use_mouse_reverse", PROP_BOOLEAN, PROP_BOOLEAN);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", USER_WALK_MOUSE_REVERSE);
 	RNA_def_property_ui_text(prop, "Reverse Mouse", "Reverse the mouse look");
+
+	prop = RNA_def_property(srna, "use_move_camera_parent", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", USER_WALK_MOVE_PARENT);
+	RNA_def_property_ui_text(prop, "Move Camera Parent",
+	                         "When the camera is locked to the view and in fly mode, "
+	                         "transform the parent rather than the camera");
 }
 
 static void rna_def_userdef_view(BlenderRNA *brna)
@@ -3109,12 +3115,6 @@ static void rna_def_userdef_view(BlenderRNA *brna)
 	RNA_def_property_boolean_sdna(prop, NULL, "uiflag", USER_ZBUF_CURSOR);
 	RNA_def_property_ui_text(prop, "Cursor Depth",
 	                         "Use the depth under the mouse when placing the cursor");
-
-	prop = RNA_def_property(srna, "use_camera_lock_parent", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_negative_sdna(prop, NULL, "uiflag", USER_CAM_LOCK_NO_PARENT);
-	RNA_def_property_ui_text(prop, "Camera Parent Lock",
-	                         "When the camera is locked to the view and in fly mode, "
-	                         "transform the parent rather than the camera");
 
 	/* view zoom */
 	prop = RNA_def_property(srna, "use_zoom_to_mouse", PROP_BOOLEAN, PROP_NONE);

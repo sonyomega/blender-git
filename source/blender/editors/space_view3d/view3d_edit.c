@@ -129,7 +129,7 @@ bool ED_view3d_camera_lock_sync(View3D *v3d, RegionView3D *rv3d)
 		ObjectTfmProtectedChannels obtfm;
 		Object *root_parent;
 
-		if ((U.uiflag & USER_CAM_LOCK_NO_PARENT) == 0 && (root_parent = v3d->camera->parent)) {
+		if ((U.walk_navigation.flag & USER_WALK_MOVE_PARENT) == 0 && (root_parent = v3d->camera->parent)) {
 			Object *ob_update;
 			float tmat[4][4];
 			float imat[4][4];

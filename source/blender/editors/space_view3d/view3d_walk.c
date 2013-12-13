@@ -514,7 +514,7 @@ static bool initWalkInfo(bContext *C, WalkInfo *walk, wmOperator *op)
 
 	walk->v3d_camera_control = ED_view3d_cameracontrol_aquire(
 	        walk->scene, walk->v3d, walk->rv3d,
-	        (U.uiflag & USER_CAM_LOCK_NO_PARENT) == 0);
+	        U.walk_navigation.flag & USER_WALK_MOVE_PARENT);
 
 	/* center the mouse */
 	walk->center_mval[0] = walk->ar->winx * 0.5f;

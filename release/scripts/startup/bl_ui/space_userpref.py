@@ -172,7 +172,6 @@ class USERPREF_PT_interface(Panel):
         col.prop(view, "use_zoom_to_mouse")
         col.prop(view, "use_rotate_around_active")
         col.prop(view, "use_global_pivot")
-        col.prop(view, "use_camera_lock_parent")
 
         col.separator()
 
@@ -1055,6 +1054,8 @@ class USERPREF_PT_input(Panel):
         sub = col.column()
         sub.label(text="View Navigation:")
         sub.row().prop(inputs, "navigation_mode", expand=True)
+
+        sub.prop(inputs.walk_navigation, "use_move_camera_parent")
         if inputs.navigation_mode == 'WALK':
             walk = inputs.walk_navigation
 
