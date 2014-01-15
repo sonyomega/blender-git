@@ -29,6 +29,26 @@ class Device;
 class DeviceScene;
 class Scene;
 
+class BakeMap {
+public:
+	void init(const int width, const int height)
+	{
+		int num_pixels = width * height;
+
+		Nx = width;
+		Ny = height;
+
+		for (int i = 0; i < 3; i++) {
+			loc[i].resize(num_pixels);
+			dir[i].resize(num_pixels);
+		}
+	}
+
+	int Nx, Ny;
+	vector<float>loc[3];
+	vector<float>dir[3];
+};
+
 /* Camera
  *
  * The camera parameters are quite standard, tested to be both compatible with
@@ -53,6 +73,9 @@ public:
 	PanoramaType panorama_type;
 	float fisheye_fov;
 	float fisheye_lens;
+
+	/* bake map lookup table */
+	BakeMap bakemap;
 
 	/* sensor */
 	float sensorwidth;
@@ -106,7 +129,7 @@ public:
 	void update();
 
 	void device_update(Device *device, DeviceScene *dscene, Scene *scene);
-	void device_free(Device *device, DeviceScene *dscene);
+	void device_free(Device *device, DeviceScene *dscene, Scene *scene);
 
 	bool modified(const Camera& cam);
 	bool motion_modified(const Camera& cam);

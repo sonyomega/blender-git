@@ -510,7 +510,8 @@ void _bake_uv(BL::Object b_object, PassType pass_type, BL::BakePixel pixel_array
 
 void populate_bake_result(BL::RenderSettings re, PassType pass_type, float result[], const int num_pixels)
 {
-	//XXX no idea how to do that
+	//XXX no idea how to do that yet, I need to find a way to access the engine.re->result
+	//XXX to write to it
 }
 
 void BlenderSession::bake(BL::Object b_object, const string& s_pass_type, BL::BakePixel pixel_array, int num_pixels, int depth, float result[])
@@ -518,15 +519,21 @@ void BlenderSession::bake(BL::Object b_object, const string& s_pass_type, BL::Ba
 	/*****
 	 TODO LIST:
 
-	 1) get render result to be damped in float result[]
+	 1) [wip] get render result to be damped in float result[]
+	    : for now to see the result I'm settings Save Buffers in the test scene
+	    : and checking the temporary EXR.
 
-	 2) convert BakePixel to position + normal list + render array.
+	 2) [wip] convert BakePixel to position + normal list + render array.
+	    : check sync_camera_bake()
 
-	 3) create new render camera 'BAKE'
+	 3) [done] create new render camera 'BAKE'
 
-	 4) use BL::BakePixel instead of BakePixel <done> :)
-
+	 4) [done] use BL::BakePixel instead of BakePixel
 	 */
+
+	/* dimensions were set using scene parameters, fixing them */
+	width = b_engine.resolution_x();
+	height = b_engine.resolution_y();
 
 	/* set callback to write out render results */
 	session->write_render_tile_cb = function_bind(&BlenderSession::write_render_tile, this, _1);
@@ -552,8 +559,11 @@ void BlenderSession::bake(BL::Object b_object, const string& s_pass_type, BL::Ba
 	/* update scene */
 	sync->sync_camera(b_render, b_engine.camera_override(), width, height);
 
-	//XXX get single layer only, though I think I will need to force the to-be rendered settings manually
+	//XXX TODO get single layer only, though I think I will need to force the to-be rendered settings manually
 	sync->sync_data(b_v3d, b_engine.camera_override(), "RenderLayer");
+
+	/* create baking lookup tables */
+	sync->sync_camera_bake(b_render, b_object, pixel_array, width, height);
 
 	/* update number of samples per layer */
 	int samples = sync->get_layer_samples();

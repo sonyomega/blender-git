@@ -453,8 +453,7 @@ bool RE_engine_bake(Render *re, Object *object, BakePixel pixel_array[], int num
 	}
 
 #if 0 //TODO
-	/* update animation here so any render layer animation is applied before
-	* creating the render result */
+	/* update animation here so any render layer animation is applied before */
 #endif
 
 	/* create render result */

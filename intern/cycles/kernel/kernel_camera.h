@@ -214,6 +214,55 @@ ccl_device void camera_sample_panorama(KernelGlobals *kg, float raster_x, float 
 #endif
 }
 
+/* Bake */
+
+ccl_device void camera_sample_bake(KernelGlobals *kg, float raster_x, float raster_y, float lens_u, float lens_v, Ray *ray)
+{
+	Transform rastertocamera = kernel_data.cam.rastertocamera;
+	float3 Pcamera = transform_perspective(&rastertocamera, make_float3(raster_x, raster_y, 0.0f));
+
+	/* create ray from raster position */
+	ray->P = bakemap_to_location(kg, Pcamera.x, Pcamera.y);
+
+#ifdef __CAMERA_CLIPPING__
+	/* clipping */
+	ray->t = kernel_data.cam.cliplength;
+#else
+	ray->t = FLT_MAX;
+#endif
+
+	ray->D = bakemap_to_direction(kg, Pcamera.x, Pcamera.y);
+
+	/* indicates ray should not receive any light, outside of the lens */
+	if(is_zero(ray->D)) {
+		ray->t = 0.0f;
+		return;
+	}
+
+	/* transform ray from camera to world */
+	Transform cameratoworld = kernel_data.cam.cameratoworld;
+
+#ifdef __CAMERA_MOTION__
+	if(kernel_data.cam.have_motion)
+		transform_motion_interpolate(&cameratoworld, (const DecompMotionTransform*)&kernel_data.cam.motion, ray->time);
+#endif
+
+	ray->P = transform_point(&cameratoworld, ray->P);
+	ray->D = transform_direction(&cameratoworld, ray->D);
+	ray->D = normalize(ray->D);
+
+#ifdef __RAY_DIFFERENTIALS__
+	/* ray differential */
+	ray->dP = differential3_zero();
+
+	Pcamera = transform_perspective(&rastertocamera, make_float3(raster_x + 1.0f, raster_y, 0.0f));
+	ray->dD.dx = normalize(transform_direction(&cameratoworld, panorama_to_direction(kg, Pcamera.x, Pcamera.y))) - ray->D;
+
+	Pcamera = transform_perspective(&rastertocamera, make_float3(raster_x, raster_y + 1.0f, 0.0f));
+	ray->dD.dy = normalize(transform_direction(&cameratoworld, panorama_to_direction(kg, Pcamera.x, Pcamera.y))) - ray->D;
+#endif
+}
+
 /* Common */
 
 ccl_device void camera_sample(KernelGlobals *kg, int x, int y, float filter_u, float filter_v,
@@ -237,8 +286,10 @@ ccl_device void camera_sample(KernelGlobals *kg, int x, int y, float filter_u, f
 		camera_sample_perspective(kg, raster_x, raster_y, lens_u, lens_v, ray);
 	else if(kernel_data.cam.type == CAMERA_ORTHOGRAPHIC)
 		camera_sample_orthographic(kg, raster_x, raster_y, lens_u, lens_v, ray);
-	else
+	else if (kernel_data.cam.type == CAMERA_PANORAMA)
 		camera_sample_panorama(kg, raster_x, raster_y, lens_u, lens_v, ray);
+	else if (kernel_data.cam.type == CAMERA_BAKE)
+		camera_sample_bake(kg, raster_x, raster_y, lens_u, lens_v, ray);
 }
 
 /* Utilities */

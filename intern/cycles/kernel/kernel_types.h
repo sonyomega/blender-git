@@ -374,7 +374,8 @@ typedef enum LightType {
 enum CameraType {
 	CAMERA_PERSPECTIVE,
 	CAMERA_ORTHOGRAPHIC,
-	CAMERA_PANORAMA
+	CAMERA_PANORAMA,
+	CAMERA_BAKE
 };
 
 /* Panorama Type */
@@ -676,6 +677,18 @@ typedef struct KernelCamera {
 	int panorama_type;
 	float fisheye_fov;
 	float fisheye_lens;
+
+	/* baking lookup tables */
+	int bakemap_lt_Nx;
+	int bakemap_lt_Ny;
+
+	int bakemap_lt_loc_x;
+	int bakemap_lt_loc_y;
+	int bakemap_lt_loc_z;
+
+	int bakemap_lt_dir_x;
+	int bakemap_lt_dir_y;
+	int bakemap_lt_dir_z;
 
 	/* matrices */
 	Transform cameratoworld;

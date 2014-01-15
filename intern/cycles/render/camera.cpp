@@ -16,6 +16,7 @@
 
 #include "camera.h"
 #include "scene.h"
+#include "tables.h"
 
 #include "device.h"
 
@@ -43,6 +44,8 @@ Camera::Camera()
 	fisheye_fov = M_PI_F;
 	fisheye_lens = 10.5f;
 	fov = M_PI_4_F;
+
+	bakemap.Nx = bakemap.Ny = 0;
 
 	sensorwidth = 0.036;
 	sensorheight = 0.024;
@@ -247,11 +250,50 @@ void Camera::device_update(Device *device, DeviceScene *dscene, Scene *scene)
 
 	need_device_update = false;
 	previous_need_motion = need_motion;
+
+	/* Baking lookup maps */
+	if (!bakemap.Nx) {
+		kcam->bakemap_lt_loc_x =
+		kcam->bakemap_lt_loc_y =
+		kcam->bakemap_lt_loc_z =
+		kcam->bakemap_lt_dir_x =
+		kcam->bakemap_lt_dir_x =
+		kcam->bakemap_lt_dir_x =
+		TABLE_OFFSET_INVALID;
+	}
+	else {
+		kcam->bakemap_lt_loc_x = scene->lookup_tables->add_table(dscene, bakemap.loc[0]);
+		kcam->bakemap_lt_loc_y = scene->lookup_tables->add_table(dscene, bakemap.loc[1]);
+		kcam->bakemap_lt_loc_z = scene->lookup_tables->add_table(dscene, bakemap.loc[2]);
+		kcam->bakemap_lt_dir_x = scene->lookup_tables->add_table(dscene, bakemap.dir[0]);
+		kcam->bakemap_lt_dir_y = scene->lookup_tables->add_table(dscene, bakemap.dir[1]);
+		kcam->bakemap_lt_dir_z = scene->lookup_tables->add_table(dscene, bakemap.dir[2]);
+	}
+	kcam->bakemap_lt_Nx = bakemap.Nx;
+	kcam->bakemap_lt_Ny = bakemap.Ny;
 }
 
-void Camera::device_free(Device *device, DeviceScene *dscene)
+void Camera::device_free(Device *device, DeviceScene *dscene, Scene *scene)
 {
-	/* nothing to free, only writing to constant memory */
+	KernelCamera *kcam = &dscene->data.cam;
+
+	if (kcam->bakemap_lt_loc_x != TABLE_OFFSET_INVALID) {
+		scene->lookup_tables->remove_table(kcam->bakemap_lt_loc_x);
+		scene->lookup_tables->remove_table(kcam->bakemap_lt_loc_y);
+		scene->lookup_tables->remove_table(kcam->bakemap_lt_loc_z);
+
+		scene->lookup_tables->remove_table(kcam->bakemap_lt_dir_x);
+		scene->lookup_tables->remove_table(kcam->bakemap_lt_dir_y);
+		scene->lookup_tables->remove_table(kcam->bakemap_lt_dir_z);
+
+		kcam->bakemap_lt_loc_x =
+		kcam->bakemap_lt_loc_y =
+		kcam->bakemap_lt_loc_z =
+		kcam->bakemap_lt_dir_x =
+		kcam->bakemap_lt_dir_y =
+		kcam->bakemap_lt_dir_z =
+		TABLE_OFFSET_INVALID;
+	}
 }
 
 bool Camera::modified(const Camera& cam)

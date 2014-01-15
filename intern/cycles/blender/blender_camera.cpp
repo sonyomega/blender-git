@@ -351,6 +351,67 @@ static void blender_camera_sync(Camera *cam, BlenderCamera *bcam, int width, int
 }
 
 /* Sync Render Camera */
+/* XXX copied function from kernel_projection.h */
+ccl_device float3 equirectangular_to_direction(float u, float v)
+{
+	float phi = M_PI_F*(1.0f - 2.0f*u);
+	float theta = M_PI_F*(1.0f - v);
+
+	return make_float3(
+					   sinf(theta)*cosf(phi),
+					   sinf(theta)*sinf(phi),
+					   cosf(theta));
+}
+
+void BlenderSync::sync_camera_bake(BL::RenderSettings b_render, BL::Object b_object, BL::BakePixel pixel_array, int width, int height)
+{
+	Camera *cam = scene->camera;
+
+	cam->matrix = get_transform(b_object.matrix_world());
+	cam->type = CAMERA_BAKE;
+
+	/* create lookup map */
+	int num_pixels = width * height;
+
+	cam->bakemap.init(width, height);
+
+	// <temp : code just to test the bake camera>
+	/* set all rays to start at the object's origin */
+	for (int i=0; i < num_pixels; i++) {
+		cam->bakemap.loc[0][i] = 0.f;
+		cam->bakemap.loc[1][i] = 0.f;
+		cam->bakemap.loc[2][i] = 0.f;
+	}
+
+	/* set the rays to go around */
+	for (int j=0; j < height; j++) {
+		float v = ((float) j / (height - 1));
+
+		for (int i=0; i < width; i++) {
+			float u = ((float) i / (width - 1));
+
+			float3 dir = equirectangular_to_direction(u, v);
+
+			int off = j * width + i;
+
+			cam->bakemap.dir[0][off] = dir[0];
+			cam->bakemap.dir[1][off] = dir[1];
+			cam->bakemap.dir[2][off] = dir[2];
+		}
+	}
+	// </temp>
+
+	/* make sure we only plot the needed parts */
+	BL::BakePixel bp = pixel_array;
+	for (int i=0; i < num_pixels; i++) {
+		if (bp.primitive_id() == -1) {
+			for (int j=0; j < 3; j++) {
+				cam->bakemap.dir[j][i] = 0.f;
+			}
+		}
+		bp = bp.next();
+	}
+}
 
 void BlenderSync::sync_camera(BL::RenderSettings b_render, BL::Object b_override, int width, int height)
 {
