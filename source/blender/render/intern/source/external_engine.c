@@ -404,11 +404,22 @@ RenderData *RE_engine_get_render_data(Render *re)
 }
 
 /* Bake */
-void RE_engine_bake_set_engine_parameters(Render *re, Main *bmain, Scene *scene)
+/* Simplified version of RE_InitState() for baking */
+void RE_engine_bake_set_engine_parameters(Render *re, Main *bmain, Scene *scene, const int width, const int height)
 {
+
 	re->scene = scene;
 	re->main = bmain;
 	re->r = scene->r;
+
+	re->rectx = width;
+	re->recty = height;
+
+	re->winx = (scene->r.size * width) / 100;
+	re->winy = (scene->r.size * height) / 100;
+
+	re->partx = scene->r.tilex;
+	re->partx = scene->r.tiley;
 }
 
 bool RE_engine_has_bake(Render *re)

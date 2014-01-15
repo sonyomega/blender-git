@@ -508,18 +508,8 @@ void _bake_uv(BL::Object b_object, PassType pass_type, BL::BakePixel pixel_array
 	}
 }
 
-void _bake_background(BL::Object b_object, PassType pass_type, BL::BakePixel pixel_array, int num_pixels, int depth, float result[]) {}
-
-void _bake_combined(BL::Object b_object, PassType pass_type, BL::BakePixel pixel_array, int num_pixels, int depth, float result[]) {}
-
-void _bake_depth(BL::Object b_object, PassType pass_type, BL::BakePixel pixel_array, int num_pixels, int depth, float result[]) {}
-
 void BlenderSession::bake(BL::Object b_object, const string& s_pass_type, BL::BakePixel pixel_array, int num_pixels, int depth, float result[])
 {
-
-	/* XXX temporary function until we get real pass_types (int) instead of strings */
-	PassType pass_type = get_pass_type(s_pass_type);
-
 	/*****
 	 TODO LIST:
 
@@ -533,22 +523,55 @@ void BlenderSession::bake(BL::Object b_object, const string& s_pass_type, BL::Ba
 
 	 */
 
-	switch(pass_type) {
-		case PASS_UV:
-			_bake_uv(b_object, pass_type, pixel_array, num_pixels, depth, result);
-			break;
-		case PASS_BACKGROUND:
-			_bake_background(b_object, pass_type, pixel_array, num_pixels, depth, result);
-			break;
-		case PASS_COMBINED:
-			_bake_combined(b_object, pass_type, pixel_array, num_pixels, depth, result);
-			break;
-		case PASS_DEPTH:
-			_bake_depth(b_object, pass_type, pixel_array, num_pixels, depth, result);
-			break;
-		default:
-			break;
-	}
+	/* get buffer parameters */
+	SessionParams session_params = BlenderSync::get_session_params(b_engine, b_userpref, b_scene, background);
+
+	BufferParams buffer_params = BlenderSync::get_buffer_params(b_render, b_scene, b_v3d, b_rv3d, scene->camera, width, height);
+
+	/* only render the needed pass */
+	PassType pass_type = get_pass_type(s_pass_type);
+
+	/* add single pass */
+	vector<Pass> passes;
+	Pass::add(pass_type, passes);
+
+	buffer_params.passes = passes;
+	scene->film->tag_passes_update(scene, passes);
+	scene->film->tag_update(scene);
+	scene->integrator->tag_update(scene);
+
+	/* update scene */
+	sync->sync_camera(b_render, b_engine.camera_override(), width, height);
+	sync->sync_data(b_v3d, b_engine.camera_override(), "RenderLayer"); //XXX get single layer only, though I think I will need to force the to-be rendered settings manually
+
+
+	/* update number of samples per layer */
+	int samples = sync->get_layer_samples();
+	bool bound_samples = sync->get_layer_bound_samples();
+
+	if(samples != 0 && (!bound_samples || (samples < session_params.samples)))
+		session->reset(buffer_params, samples);
+	else
+		session->reset(buffer_params, session_params.samples);
+
+	/* render */
+	session->start();
+	session->wait();
+
+	if(session->progress.get_cancel())
+		return;
+
+	/* free all memory used (host and device), so we wouldn't leave render
+	 * engine with extra memory allocated
+	 */
+
+	session->device_free();
+
+	delete sync;
+	sync = NULL;
+
+	// XXX remaining bit to test, but to be removed soon
+	_bake_uv(b_object, pass_type, pixel_array, num_pixels, depth, result);
 }
 
 void BlenderSession::do_write_update_render_result(BL::RenderResult b_rr, BL::RenderLayer b_rlay, RenderTile& rtile, bool do_update_only)

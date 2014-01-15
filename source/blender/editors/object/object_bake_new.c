@@ -187,7 +187,7 @@ static int bake_exec(bContext *C, wmOperator *op)
 	char filepath[FILE_MAX];
 	RNA_string_get(op->ptr, "filepath", filepath);
 
-	RE_engine_bake_set_engine_parameters(re, CTX_data_main(C), scene);
+	RE_engine_bake_set_engine_parameters(re, CTX_data_main(C), scene, width, height);
 
 	G.is_break = FALSE;
 
