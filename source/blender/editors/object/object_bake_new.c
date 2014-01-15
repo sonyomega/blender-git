@@ -106,6 +106,15 @@ static int bake_modal(bContext *C, wmOperator *UNUSED(op), const wmEvent *event)
 	return OPERATOR_PASS_THROUGH;
 }
 
+static void bake_cancel(bContext *C, wmOperator *op)
+{
+	wmWindowManager *wm = CTX_wm_manager(C);
+	Scene *scene = (Scene *) op->customdata;
+
+	/* kill on cancel, because job is using op->reports */
+	WM_jobs_kill_type(wm, scene, WM_JOB_TYPE_RENDER_BAKE);
+}
+
 static int bake_invoke(bContext *UNUSED(C), wmOperator *op, const wmEvent *UNUSED(_event))
 {
 	BKE_report(op->reports, RPT_ERROR, "Baking not supported via invoke at the moment");
@@ -187,6 +196,7 @@ static int bake_exec(bContext *C, wmOperator *op)
 	char filepath[FILE_MAX];
 	RNA_string_get(op->ptr, "filepath", filepath);
 
+	//RE_InitState(re, NULL, &scene->r, NULL, width, height, NULL);
 	RE_engine_bake_set_engine_parameters(re, CTX_data_main(C), scene, width, height);
 
 	G.is_break = FALSE;
@@ -348,6 +358,7 @@ void OBJECT_OT_bake(wmOperatorType *ot)
 	ot->exec = bake_exec;
 	ot->invoke = bake_invoke;
 	ot->modal = bake_modal;
+	ot->cancel = bake_cancel;
 
 	ot->prop = RNA_def_enum(ot->srna, "type", render_pass_type_items, SCE_PASS_COMBINED, "Type",
 	                        "Type of pass to bake, some of them may not be supported by the current render engine");

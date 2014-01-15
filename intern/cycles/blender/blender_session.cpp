@@ -508,6 +508,11 @@ void _bake_uv(BL::Object b_object, PassType pass_type, BL::BakePixel pixel_array
 	}
 }
 
+void populate_bake_result(BL::RenderSettings re, PassType pass_type, float result[], const int num_pixels)
+{
+	//XXX no idea how to do that
+}
+
 void BlenderSession::bake(BL::Object b_object, const string& s_pass_type, BL::BakePixel pixel_array, int num_pixels, int depth, float result[])
 {
 	/*****
@@ -522,6 +527,10 @@ void BlenderSession::bake(BL::Object b_object, const string& s_pass_type, BL::Ba
 	 4) use BL::BakePixel instead of BakePixel <done> :)
 
 	 */
+
+	/* set callback to write out render results */
+	session->write_render_tile_cb = function_bind(&BlenderSession::write_render_tile, this, _1);
+	session->update_render_tile_cb = function_bind(&BlenderSession::update_render_tile, this, _1);
 
 	/* get buffer parameters */
 	SessionParams session_params = BlenderSync::get_session_params(b_engine, b_userpref, b_scene, background);
@@ -542,8 +551,9 @@ void BlenderSession::bake(BL::Object b_object, const string& s_pass_type, BL::Ba
 
 	/* update scene */
 	sync->sync_camera(b_render, b_engine.camera_override(), width, height);
-	sync->sync_data(b_v3d, b_engine.camera_override(), "RenderLayer"); //XXX get single layer only, though I think I will need to force the to-be rendered settings manually
 
+	//XXX get single layer only, though I think I will need to force the to-be rendered settings manually
+	sync->sync_data(b_v3d, b_engine.camera_override(), "RenderLayer");
 
 	/* update number of samples per layer */
 	int samples = sync->get_layer_samples();
@@ -558,8 +568,10 @@ void BlenderSession::bake(BL::Object b_object, const string& s_pass_type, BL::Ba
 	session->start();
 	session->wait();
 
-	if(session->progress.get_cancel())
-		return;
+	/* saves the result externally */
+	if(!session->progress.get_cancel()) {
+		populate_bake_result(b_render, pass_type, result, num_pixels);
+	}
 
 	/* free all memory used (host and device), so we wouldn't leave render
 	 * engine with extra memory allocated
@@ -571,7 +583,7 @@ void BlenderSession::bake(BL::Object b_object, const string& s_pass_type, BL::Ba
 	sync = NULL;
 
 	// XXX remaining bit to test, but to be removed soon
-	_bake_uv(b_object, pass_type, pixel_array, num_pixels, depth, result);
+	//_bake_uv(b_object, pass_type, pixel_array, num_pixels, depth, result);
 }
 
 void BlenderSession::do_write_update_render_result(BL::RenderResult b_rr, BL::RenderLayer b_rlay, RenderTile& rtile, bool do_update_only)

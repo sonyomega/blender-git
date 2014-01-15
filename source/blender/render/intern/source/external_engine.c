@@ -420,6 +420,19 @@ void RE_engine_bake_set_engine_parameters(Render *re, Main *bmain, Scene *scene,
 
 	re->partx = scene->r.tilex;
 	re->partx = scene->r.tiley;
+
+	re->disprect.xmin = re->disprect.ymin = 0;
+	re->disprect.xmax = width;
+	re->disprect.ymax = height;
+
+
+	/* if preview render, we try to keep old result */
+	BLI_rw_mutex_lock(&re->resultmutex, THREAD_LOCK_WRITE);
+
+	/* ensure renderdatabase can use part settings correct */
+	RE_parts_clamp(re);
+
+	BLI_rw_mutex_unlock(&re->resultmutex);
 }
 
 bool RE_engine_has_bake(Render *re)
@@ -433,6 +446,44 @@ bool RE_engine_bake(Render *re, Object *object, BakePixel pixel_array[], int num
 	RenderEngineType *type = RE_engines_find(re->r.engine);
 	RenderEngine *engine;
 	int persistent_data = re->r.mode & R_PERSISTENT_DATA;
+
+	/* Lock drawing in UI during data phase. */
+	if (re->draw_lock) {
+		re->draw_lock(re->dlh, 1);
+	}
+
+#if 0 //TODO
+	/* update animation here so any render layer animation is applied before
+	* creating the render result */
+#endif
+
+	/* create render result */
+	BLI_rw_mutex_lock(&re->resultmutex, THREAD_LOCK_WRITE);
+	int savebuffers = RR_USE_MEM;
+
+	if (re->result)
+		render_result_free(re->result);
+
+	if ((type->flag & RE_USE_SAVE_BUFFERS) && (re->r.scemode & R_EXR_TILE_FILE))
+		savebuffers = RR_USE_EXR;
+
+	/*
+	TODO create one layer only
+	My suggestion: to pass a bogus layer name, and then artifically set passflag for the layer
+	right now we need to manually make sure the renderlayer has the needed pass(es).
+	Actually that may not work, I'll get to that later.
+	*/
+	re->result = render_result_new(re, &re->disprect, 0, savebuffers, RR_ALL_LAYERS);
+
+	BLI_rw_mutex_unlock(&re->resultmutex);
+
+	if (re->result == NULL) {
+		/* Clear UI drawing locks. */
+		if (re->draw_lock) {
+			re->draw_lock(re->dlh, 0);
+		}
+		return false;
+	}
 
 	G.is_rendering = TRUE;
 
@@ -458,12 +509,21 @@ bool RE_engine_bake(Render *re, Object *object, BakePixel pixel_array[], int num
 	engine->resolution_y = re->winy;
 
 	RE_parts_init(re, FALSE);
+
+	if (re->result->do_exr_tile)
+		render_result_exr_file_begin(re);
+
 	engine->tile_x = re->partx;
 	engine->tile_y = re->party;
 
 	/* update is only called so we create the engine.session */
 	if (type->update)
 		type->update(engine, re->main, re->scene);
+
+	/* Clear UI drawing locks. */
+	if (re->draw_lock) {
+		re->draw_lock(re->dlh, 0);
+	}
 
 	if (type->bake)
 		type->bake(engine, re->scene, object, pass_type, pixel_array, num_pixels, depth, result);
@@ -476,6 +536,14 @@ bool RE_engine_bake(Render *re, Object *object, BakePixel pixel_array[], int num
 	if (!persistent_data || !re->engine) {
 		RE_engine_free(engine);
 		re->engine = NULL;
+	}
+
+	/* garbage collection, we won't need the renderresult anymore */
+	RE_parts_free(re);
+
+	if (re->result) {
+		render_result_free(re->result);
+		re->result = NULL;
 	}
 
 	if (BKE_reports_contain(re->reports, RPT_ERROR))
