@@ -511,7 +511,7 @@ void _bake_uv(BL::Object b_object, PassType pass_type, BL::BakePixel pixel_array
 void populate_bake_result(BL::RenderSettings re, PassType pass_type, float result[], const int num_pixels)
 {
 	//XXX no idea how to do that yet, I need to find a way to access the engine.re->result
-	//XXX to write to it
+	//XXX to write to this
 }
 
 void BlenderSession::bake(BL::Object b_object, const string& s_pass_type, BL::BakePixel pixel_array, int num_pixels, int depth, float result[])

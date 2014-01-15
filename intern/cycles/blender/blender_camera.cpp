@@ -350,17 +350,111 @@ static void blender_camera_sync(Camera *cam, BlenderCamera *bcam, int width, int
 		cam->tag_update();
 }
 
-/* Sync Render Camera */
-/* XXX copied function from kernel_projection.h */
-ccl_device float3 equirectangular_to_direction(float u, float v)
+static float3 uv_barycentric_to_world(float u, float v, float3 v1, float3 v2, float3 v3)
 {
-	float phi = M_PI_F*(1.0f - 2.0f*u);
-	float theta = M_PI_F*(1.0f - v);
+	//TODO
+	return make_float3(0.f);
+}
 
-	return make_float3(
-					   sinf(theta)*cosf(phi),
-					   sinf(theta)*sinf(phi),
-					   cosf(theta));
+static void populate_bake_lookup_tables(BL::Mesh b_mesh, vector<float>r_loc[3], vector<float>r_dir[3], BL::BakePixel pixel_array, int num_pixels)
+{
+	/* count vertices and faces */
+	int numverts = b_mesh.vertices.length();
+	int numtris = 0;
+
+	BL::Mesh::vertices_iterator v;
+	BL::Mesh::tessfaces_iterator f;
+
+	vector<float3>N; /* normals */
+	vector<float3>V; /* verts */
+	vector<int3>T;   /* triangles */
+	vector<float3>C; /* centers */
+
+	for(b_mesh.tessfaces.begin(f); f != b_mesh.tessfaces.end(); ++f) {
+		int4 vi = get_int4(f->vertices_raw());
+		numtris += (vi[3] == 0)? 1: 2;
+	}
+
+	/* reserve memory */
+	N.reserve(numverts);
+	V.reserve(numverts);
+	T.reserve(numtris);
+	C.reserve(numtris);
+
+	/* create vertex coordinates and normals */
+	int i = 0;
+	for(b_mesh.vertices.begin(v); v != b_mesh.vertices.end(); ++v, ++i) {
+		V[i] = get_float3(v->co());
+		N[i] = get_float3(v->normal());
+	}
+
+	int ti = 0;
+	for(b_mesh.tessfaces.begin(f); f != b_mesh.tessfaces.end(); ++f) {
+		int4 vi = get_int4(f->vertices_raw());
+		int n = (vi[3] == 0)? 3: 4;
+
+		if(n == 4) {
+			if(len_squared(cross(V[vi[1]] - V[vi[0]], V[vi[2]] - V[vi[0]])) == 0.0f ||
+			   len_squared(cross(V[vi[2]] - V[vi[0]], V[vi[3]] - V[vi[0]])) == 0.0f) {
+
+				T[ti++] = make_int3(vi[0], vi[1], vi[3]);
+				T[ti++] = make_int3(vi[2], vi[3], vi[1]);
+			}
+			else {
+				T[ti++] = make_int3(vi[0], vi[1], vi[2]);
+				T[ti++] = make_int3(vi[0], vi[2], vi[3]);
+			}
+		}
+		else
+			T[ti++] = make_int3(vi[0], vi[1], vi[2]);
+	}
+
+	int j;
+	/* calculates the center of faces (not using at the moment) */
+	for(i=0; i < numtris; i++) {
+		int3 t = T[i];
+		float3 v[3];
+
+		for (j=0; j<3; j++)
+			v[j] = V[t[j]];
+
+		for (j=0; j<3; j++)
+			C[i][j] = (v[0][j] + v[1][j] + v[2][j]) / 3.f;
+	}
+
+	BL::BakePixel bp = pixel_array;
+	for (i=0; i < num_pixels; i++) {
+		int pid = bp.primitive_id();
+
+		/* make sure we only render the needed parts */
+		if (pid == -1) {
+			for (int j=0; j < 3; j++)
+				r_dir[j][i] = 0.f;
+		}
+		else {
+			int3 t = T[pid];
+			float3 n[3];
+			float3 v[3];
+
+			for (int j = 0; j < 3; j++) {
+				int v_id = t[j];
+				v[j] = V[v_id];
+				n[j] = N[v_id];
+			}
+
+			/* set directions (negative normal, so it points towards the face) */
+			for (j = 0; j < 3; j++)
+				r_dir[j][i] = -(n[0][j] + n[1][j] + n[2][j]);
+
+
+			/* converts from UV barycentrics to world coordinates */
+			float3 pos = uv_barycentric_to_world(bp.u(), bp.v(), v[0], v[1], v[2]);
+
+			for (j = 0; j < 3; j++)
+				r_loc[j][i] = pos[j];
+		}
+		bp = bp.next();
+	}
 }
 
 void BlenderSync::sync_camera_bake(BL::RenderSettings b_render, BL::Object b_object, BL::BakePixel pixel_array, int width, int height)
@@ -371,48 +465,15 @@ void BlenderSync::sync_camera_bake(BL::RenderSettings b_render, BL::Object b_obj
 	cam->type = CAMERA_BAKE;
 
 	/* create lookup map */
-	int num_pixels = width * height;
+	const int num_pixels = width * height;
 
 	cam->bakemap.init(width, height);
 
-	// <temp : code just to test the bake camera>
-	/* set all rays to start at the object's origin */
-	for (int i=0; i < num_pixels; i++) {
-		cam->bakemap.loc[0][i] = 0.f;
-		cam->bakemap.loc[1][i] = 0.f;
-		cam->bakemap.loc[2][i] = 0.f;
-	}
-
-	/* set the rays to go around */
-	for (int j=0; j < height; j++) {
-		float v = ((float) j / (height - 1));
-
-		for (int i=0; i < width; i++) {
-			float u = ((float) i / (width - 1));
-
-			float3 dir = equirectangular_to_direction(u, v);
-
-			int off = j * width + i;
-
-			cam->bakemap.dir[0][off] = dir[0];
-			cam->bakemap.dir[1][off] = dir[1];
-			cam->bakemap.dir[2][off] = dir[2];
-		}
-	}
-	// </temp>
-
-	/* make sure we only plot the needed parts */
-	BL::BakePixel bp = pixel_array;
-	for (int i=0; i < num_pixels; i++) {
-		if (bp.primitive_id() == -1) {
-			for (int j=0; j < 3; j++) {
-				cam->bakemap.dir[j][i] = 0.f;
-			}
-		}
-		bp = bp.next();
-	}
+	BL::Mesh mesh = (BL::Mesh)b_object.data();
+	populate_bake_lookup_tables(mesh, cam->bakemap.loc, cam->bakemap.dir, pixel_array, num_pixels);
 }
 
+/* Sync Render Camera */
 void BlenderSync::sync_camera(BL::RenderSettings b_render, BL::Object b_override, int width, int height)
 {
 	BlenderCamera bcam;
