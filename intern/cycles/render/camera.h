@@ -38,15 +38,12 @@ public:
 		Nx = width;
 		Ny = height;
 
-		for (int i = 0; i < 3; i++) {
-			loc[i].resize(num_pixels);
-			dir[i].resize(num_pixels);
-		}
+		for (int i = 0; i < 6; i++)
+			tables[i].resize(num_pixels);
 	}
 
 	int Nx, Ny;
-	vector<float>loc[3];
-	vector<float>dir[3];
+	vector<float>tables[6];
 };
 
 /* Camera

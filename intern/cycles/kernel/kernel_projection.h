@@ -204,21 +204,23 @@ ccl_device float2 direction_to_panorama(KernelGlobals *kg, float3 dir)
 	}
 }
 
-ccl_device float3 bakemap_to_location(KernelGlobals *kg, float u, float v)
+ccl_device float bakemap_u(KernelGlobals *kg, float x, float y)
 {
-	if (!kernel_data.cam.bakemap_lt_Nx)
-		return make_float3(0.f,0.f,0.f);
-
-	float x = lookup_table_read_2D(kg, u, v, kernel_data.cam.bakemap_lt_loc_x, kernel_data.cam.bakemap_lt_Nx, kernel_data.cam.bakemap_lt_Ny);
-
-	float y = lookup_table_read_2D(kg, u, v, kernel_data.cam.bakemap_lt_loc_y, kernel_data.cam.bakemap_lt_Nx, kernel_data.cam.bakemap_lt_Ny);
-
-	float z = lookup_table_read_2D(kg, u, v, kernel_data.cam.bakemap_lt_loc_z, kernel_data.cam.bakemap_lt_Nx, kernel_data.cam.bakemap_lt_Ny);
-
-	return make_float3(x, y, z);
+	return lookup_table_read_2D(kg, x, y, kernel_data.cam.bakemap_lt_u, kernel_data.cam.bakemap_lt_Nx, kernel_data.cam.bakemap_lt_Ny);
 }
 
-ccl_device float3 bakemap_to_direction(KernelGlobals *kg, float u, float v)
+ccl_device float bakemap_v(KernelGlobals *kg, float x, float y)
+{
+	return lookup_table_read_2D(kg, x, y, kernel_data.cam.bakemap_lt_v, kernel_data.cam.bakemap_lt_Nx, kernel_data.cam.bakemap_lt_Ny);
+}
+
+
+ccl_device int bakemap_primitive_id(KernelGlobals *kg, float x, float y)
+{
+	return (int) lookup_table_read_2D(kg, x, y, kernel_data.cam.bakemap_lt_prim_id, kernel_data.cam.bakemap_lt_Nx, kernel_data.cam.bakemap_lt_Ny);
+}
+
+ccl_device float3 bakemap_direction(KernelGlobals *kg, float u, float v)
 {
 	if (!kernel_data.cam.bakemap_lt_Nx)
 		return make_float3(0.f,0.f,1.f);

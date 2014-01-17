@@ -682,9 +682,9 @@ typedef struct KernelCamera {
 	int bakemap_lt_Nx;
 	int bakemap_lt_Ny;
 
-	int bakemap_lt_loc_x;
-	int bakemap_lt_loc_y;
-	int bakemap_lt_loc_z;
+	int bakemap_lt_prim_id;
+	int bakemap_lt_u;
+	int bakemap_lt_v;
 
 	int bakemap_lt_dir_x;
 	int bakemap_lt_dir_y;

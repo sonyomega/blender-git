@@ -221,8 +221,12 @@ ccl_device void camera_sample_bake(KernelGlobals *kg, float raster_x, float rast
 	Transform rastertocamera = kernel_data.cam.rastertocamera;
 	float3 Pcamera = transform_perspective(&rastertocamera, make_float3(raster_x, raster_y, 0.0f));
 
+	float u = bakemap_u(kg, Pcamera.x, Pcamera.y);
+	float v = bakemap_v(kg, Pcamera.x, Pcamera.y);
+	int tri_index = bakemap_primitive_id(kg, Pcamera.x, Pcamera.y);
+
 	/* create ray from raster position */
-	ray->P = bakemap_to_location(kg, Pcamera.x, Pcamera.y);
+	ray->P = triangle_point_MT(kg, tri_index, u, v);
 
 #ifdef __CAMERA_CLIPPING__
 	/* clipping */
@@ -231,7 +235,10 @@ ccl_device void camera_sample_bake(KernelGlobals *kg, float raster_x, float rast
 	ray->t = FLT_MAX;
 #endif
 
-	ray->D = bakemap_to_direction(kg, Pcamera.x, Pcamera.y);
+	ray->D = bakemap_direction(kg, Pcamera.x, Pcamera.y);
+
+	if (tri_index == -1)
+		ray->t = 0.0f;
 
 	/* indicates ray should not receive any light, outside of the lens */
 	if(is_zero(ray->D)) {

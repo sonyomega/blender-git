@@ -253,21 +253,21 @@ void Camera::device_update(Device *device, DeviceScene *dscene, Scene *scene)
 
 	/* Baking lookup maps */
 	if (!bakemap.Nx) {
-		kcam->bakemap_lt_loc_x =
-		kcam->bakemap_lt_loc_y =
-		kcam->bakemap_lt_loc_z =
+		kcam->bakemap_lt_prim_id =
+		kcam->bakemap_lt_u =
+		kcam->bakemap_lt_v =
 		kcam->bakemap_lt_dir_x =
 		kcam->bakemap_lt_dir_x =
 		kcam->bakemap_lt_dir_x =
 		TABLE_OFFSET_INVALID;
 	}
 	else {
-		kcam->bakemap_lt_loc_x = scene->lookup_tables->add_table(dscene, bakemap.loc[0]);
-		kcam->bakemap_lt_loc_y = scene->lookup_tables->add_table(dscene, bakemap.loc[1]);
-		kcam->bakemap_lt_loc_z = scene->lookup_tables->add_table(dscene, bakemap.loc[2]);
-		kcam->bakemap_lt_dir_x = scene->lookup_tables->add_table(dscene, bakemap.dir[0]);
-		kcam->bakemap_lt_dir_y = scene->lookup_tables->add_table(dscene, bakemap.dir[1]);
-		kcam->bakemap_lt_dir_z = scene->lookup_tables->add_table(dscene, bakemap.dir[2]);
+		kcam->bakemap_lt_prim_id = scene->lookup_tables->add_table(dscene, bakemap.tables[0]);
+		kcam->bakemap_lt_u = scene->lookup_tables->add_table(dscene, bakemap.tables[1]);
+		kcam->bakemap_lt_v = scene->lookup_tables->add_table(dscene, bakemap.tables[2]);
+		kcam->bakemap_lt_dir_x = scene->lookup_tables->add_table(dscene, bakemap.tables[3]);
+		kcam->bakemap_lt_dir_y = scene->lookup_tables->add_table(dscene, bakemap.tables[4]);
+		kcam->bakemap_lt_dir_z = scene->lookup_tables->add_table(dscene, bakemap.tables[5]);
 	}
 	kcam->bakemap_lt_Nx = bakemap.Nx;
 	kcam->bakemap_lt_Ny = bakemap.Ny;
@@ -277,18 +277,18 @@ void Camera::device_free(Device *device, DeviceScene *dscene, Scene *scene)
 {
 	KernelCamera *kcam = &dscene->data.cam;
 
-	if (kcam->bakemap_lt_loc_x != TABLE_OFFSET_INVALID) {
-		scene->lookup_tables->remove_table(kcam->bakemap_lt_loc_x);
-		scene->lookup_tables->remove_table(kcam->bakemap_lt_loc_y);
-		scene->lookup_tables->remove_table(kcam->bakemap_lt_loc_z);
+	if (kcam->bakemap_lt_prim_id != TABLE_OFFSET_INVALID) {
+		scene->lookup_tables->remove_table(kcam->bakemap_lt_prim_id);
+		scene->lookup_tables->remove_table(kcam->bakemap_lt_u);
+		scene->lookup_tables->remove_table(kcam->bakemap_lt_v);
 
 		scene->lookup_tables->remove_table(kcam->bakemap_lt_dir_x);
 		scene->lookup_tables->remove_table(kcam->bakemap_lt_dir_y);
 		scene->lookup_tables->remove_table(kcam->bakemap_lt_dir_z);
 
-		kcam->bakemap_lt_loc_x =
-		kcam->bakemap_lt_loc_y =
-		kcam->bakemap_lt_loc_z =
+		kcam->bakemap_lt_prim_id =
+		kcam->bakemap_lt_u =
+		kcam->bakemap_lt_v =
 		kcam->bakemap_lt_dir_x =
 		kcam->bakemap_lt_dir_y =
 		kcam->bakemap_lt_dir_z =

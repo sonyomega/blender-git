@@ -350,13 +350,7 @@ static void blender_camera_sync(Camera *cam, BlenderCamera *bcam, int width, int
 		cam->tag_update();
 }
 
-static float3 uv_barycentric_to_world(float u, float v, float3 v1, float3 v2, float3 v3)
-{
-	//TODO
-	return make_float3(0.f);
-}
-
-static void populate_bake_lookup_tables(BL::Mesh b_mesh, vector<float>r_loc[3], vector<float>r_dir[3], BL::BakePixel pixel_array, int num_pixels)
+static void populate_bake_lookup_tables(BL::Mesh b_mesh, vector<float>r_tables[3], BL::BakePixel pixel_array, int num_pixels)
 {
 	/* count vertices and faces */
 	int numverts = b_mesh.vertices.length();
@@ -368,7 +362,6 @@ static void populate_bake_lookup_tables(BL::Mesh b_mesh, vector<float>r_loc[3], 
 	vector<float3>N; /* normals */
 	vector<float3>V; /* verts */
 	vector<int3>T;   /* triangles */
-	vector<float3>C; /* centers */
 
 	for(b_mesh.tessfaces.begin(f); f != b_mesh.tessfaces.end(); ++f) {
 		int4 vi = get_int4(f->vertices_raw());
@@ -379,7 +372,6 @@ static void populate_bake_lookup_tables(BL::Mesh b_mesh, vector<float>r_loc[3], 
 	N.reserve(numverts);
 	V.reserve(numverts);
 	T.reserve(numtris);
-	C.reserve(numtris);
 
 	/* create vertex coordinates and normals */
 	int i = 0;
@@ -409,30 +401,17 @@ static void populate_bake_lookup_tables(BL::Mesh b_mesh, vector<float>r_loc[3], 
 			T[ti++] = make_int3(vi[0], vi[1], vi[2]);
 	}
 
-	int j;
-	/* calculates the center of faces (not using at the moment) */
-	for(i=0; i < numtris; i++) {
-		int3 t = T[i];
-		float3 v[3];
-
-		for (j=0; j<3; j++)
-			v[j] = V[t[j]];
-
-		for (j=0; j<3; j++)
-			C[i][j] = (v[0][j] + v[1][j] + v[2][j]) / 3.f;
-	}
-
 	BL::BakePixel bp = pixel_array;
 	for (i=0; i < num_pixels; i++) {
-		int pid = bp.primitive_id();
+		int prim_id = bp.primitive_id();
 
 		/* make sure we only render the needed parts */
-		if (pid == -1) {
-			for (int j=0; j < 3; j++)
-				r_dir[j][i] = 0.f;
+		if (prim_id == -1) {
+			for (int j=3; j < 6; j++)
+				r_tables[j][i] = 0.f;
 		}
 		else {
-			int3 t = T[pid];
+			int3 t = T[prim_id];
 			float3 n[3];
 			float3 v[3];
 
@@ -443,15 +422,15 @@ static void populate_bake_lookup_tables(BL::Mesh b_mesh, vector<float>r_loc[3], 
 			}
 
 			/* set directions (negative normal, so it points towards the face) */
-			for (j = 0; j < 3; j++)
-				r_dir[j][i] = -(n[0][j] + n[1][j] + n[2][j]);
+			int j;
+			for (j = 3; j < 6; j++)
+				r_tables[j][i] = -(n[0][j] + n[1][j] + n[2][j]);
 
 
-			/* converts from UV barycentrics to world coordinates */
-			float3 pos = uv_barycentric_to_world(bp.u(), bp.v(), v[0], v[1], v[2]);
+			r_tables[0][i] = prim_id;
+			r_tables[1][i] = bp.u();
+			r_tables[1][i] = bp.v();
 
-			for (j = 0; j < 3; j++)
-				r_loc[j][i] = pos[j];
 		}
 		bp = bp.next();
 	}
@@ -470,7 +449,7 @@ void BlenderSync::sync_camera_bake(BL::RenderSettings b_render, BL::Object b_obj
 	cam->bakemap.init(width, height);
 
 	BL::Mesh mesh = (BL::Mesh)b_object.data();
-	populate_bake_lookup_tables(mesh, cam->bakemap.loc, cam->bakemap.dir, pixel_array, num_pixels);
+	populate_bake_lookup_tables(mesh, cam->bakemap.tables, pixel_array, num_pixels);
 }
 
 /* Sync Render Camera */
