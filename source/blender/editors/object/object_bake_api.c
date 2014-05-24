@@ -324,7 +324,7 @@ static bool bake_object_check(Object *ob, ReportList *reports)
 			}
 			else {
 				BKE_reportf(reports, RPT_ERROR,
-				            "Uninitialized image \"%s\" from object \"%s\"",
+				            "Unitialized image \"%s\" from object \"%s\"",
 				            image->id.name + 2, ob->id.name + 2);
 
 				BKE_image_release_ibuf(image, ibuf, lock);
@@ -533,6 +533,7 @@ static int bake(
 	char restrict_flag_cage;
 
 	Mesh *me_low = NULL;
+	Mesh *me_cage = NULL;
 	Render *re;
 
 	float *result = NULL;
@@ -618,14 +619,19 @@ static int bake(
 			tot_highpoly ++;
 		}
 
+		if (tot_highpoly == 0) {
+			BKE_report(reports, RPT_ERROR, "No valid selected objects");
+			goto cleanup;
+		}
+		else {
+			is_highpoly = true;
+		}
+
 		if (custom_cage[0] != '\0') {
 			ob_cage = BLI_findstring(&bmain->object, custom_cage, offsetof(ID, name) + 2);
 
-			/* TODO check if cage object has the same topology (num of triangles and a valid UV) */
 			if (ob_cage == NULL || ob_cage->type != OB_MESH) {
 				BKE_report(reports, RPT_ERROR, "No valid cage object");
-				op_result = OPERATOR_CANCELLED;
-
 				goto cleanup;
 			}
 			else {
@@ -644,46 +650,28 @@ static int bake(
 	pixel_array_low = MEM_callocN(sizeof(BakePixel) * num_pixels, "bake pixels low poly");
 	result = MEM_callocN(sizeof(float) * depth * num_pixels, "bake return pixels");
 
+	/* get the mesh as it arrives in the renderer */
+	me_low = BKE_mesh_new_from_object(bmain, scene, ob_low, 1, 2, 1, 0);
+
+	/* populate the pixel array with the face data */
+	RE_bake_pixels_populate(me_low, pixel_array_low, num_pixels, &bake_images);
+
 	if (is_selected_to_active) {
 		CollectionPointerLink *link;
-		ModifierData *md, *nmd;
-		ListBase modifiers_tmp, modifiers_original;
-		float mat_low[4][4];
 		int i = 0;
-		highpoly = MEM_callocN(sizeof(BakeHighPolyData) * tot_highpoly, "bake high poly objects");
 
 		/* prepare cage mesh */
 		if (ob_cage) {
-			me_low = BKE_mesh_new_from_object(bmain, scene, ob_cage, 1, 2, 1, 0);
-			copy_m4_m4(mat_low, ob_cage->obmat);
-		}
-		else {
-			modifiers_original = ob_low->modifiers;
-			BLI_listbase_clear(&modifiers_tmp);
-
-			for (md = ob_low->modifiers.first; md; md = md->next) {
-				/* Edge Split cannot be applied in the cage,
-				 * the cage is supposed to have interpolated normals
-				 * between the faces unless the geometry is physically
-				 * split. So we create a copy of the low poly mesh without
-				 * the eventual edge split.*/
-
-				if (md->type == eModifierType_EdgeSplit)
-					continue;
-
-				nmd = modifier_new(md->type);
-				BLI_strncpy(nmd->name, md->name, sizeof(nmd->name));
-				modifier_copyData(md, nmd);
-				BLI_addtail(&modifiers_tmp, nmd);
+			me_cage = BKE_mesh_new_from_object(bmain, scene, ob_cage, 1, 2, 1, 0);
+			if (me_low->totface != me_cage->totface) {
+				BKE_report(reports, RPT_ERROR,
+				           "Invalid cage object, the cage mesh must have the same number "
+				           "of faces as the active object");
+				goto cleanup;
 			}
-
-			/* temporarily replace the modifiers */
-			ob_low->modifiers = modifiers_tmp;
-
-			/* get the cage mesh as it arrives in the renderer */
-			me_low = BKE_mesh_new_from_object(bmain, scene, ob_low, 1, 2, 1, 0);
-			copy_m4_m4(mat_low, ob_low->obmat);
 		}
+
+		highpoly = MEM_callocN(sizeof(BakeHighPolyData) * tot_highpoly, "bake high poly objects");
 
 		/* populate highpoly array */
 		for (link = selected_objects->first; link; link = link->next) {
@@ -727,15 +715,12 @@ static int bake(
 
 		BLI_assert(i == tot_highpoly);
 
-		/* populate the pixel array with the face data */
-		RE_bake_pixels_populate(me_low, pixel_array_low, num_pixels, &bake_images);
-
 		ob_low->restrictflag |= OB_RESTRICT_RENDER;
 
 		/* populate the pixel arrays with the corresponding face data for each high poly object */
 		RE_bake_pixels_populate_from_objects(
 		        me_low, pixel_array_low, highpoly, tot_highpoly,
-		        num_pixels, cage_extrusion, mat_low);
+		        num_pixels, cage_extrusion, ob_low->obmat, ob_cage->obmat, me_cage);
 
 		/* the baking itself */
 		for (i = 0; i < tot_highpoly; i++) {
@@ -756,21 +741,8 @@ static int bake(
 		if (ob_cage) {
 			ob_cage->restrictflag |= OB_RESTRICT_RENDER;
 		}
-		else {
-			ob_low->modifiers = modifiers_original;
-
-			while ((md = BLI_pophead(&modifiers_tmp))) {
-				modifier_free(md);
-			}
-		}
 	}
 	else {
-		/* get the mesh as it arrives in the renderer */
-		me_low = BKE_mesh_new_from_object(bmain, scene, ob_low, 1, 2, 1, 0);
-
-		/* populate the pixel array with the face data */
-		RE_bake_pixels_populate(me_low, pixel_array_low, num_pixels, &bake_images);
-
 		/* make sure low poly renders */
 		ob_low->restrictflag &= ~OB_RESTRICT_RENDER;
 
@@ -968,6 +940,9 @@ cleanup:
 
 	if (me_low)
 		BKE_libblock_free(bmain, me_low);
+
+	if (me_cage)
+		BKE_libblock_free(bmain, me_cage);
 
 	return op_result;
 }
