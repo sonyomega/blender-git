@@ -498,6 +498,8 @@ typedef struct BakeAPIRender {
 	int normal_space;
 	BakeNormalSwizzle normal_swizzle[3];
 
+	char uv_layer[MAX_NAME];
+
 	char custom_cage[MAX_NAME];
 	char filepath[FILE_MAX];
 
@@ -519,7 +521,7 @@ static int bake(
         const bool is_automatic_name, const bool is_selected_to_active,
         const float cage_extrusion, const int normal_space, const BakeNormalSwizzle normal_swizzle[],
         const char *custom_cage, const char *filepath, const int width, const int height,
-        const char *identifier, ScrArea *sa)
+        const char *identifier, ScrArea *sa, const char *uv_layer)
 {
 	int op_result = OPERATOR_CANCELLED;
 	bool ok = false;
@@ -553,6 +555,19 @@ static int bake(
 	RE_SetReports(re, NULL);
 
 	tot_materials = ob_low->totcol;
+
+	if (uv_layer && uv_layer[0] != '\0') {
+		Mesh *me = (Mesh *)ob_low->data;
+		const int pidx = CustomData_get_named_layer(&me->pdata, CD_MTEXPOLY, uv_layer);
+		const int lidx = CustomData_get_named_layer(&me->ldata, CD_MLOOPUV, uv_layer);
+		const int fidx = CustomData_get_named_layer(&me->fdata, CD_MTFACE, uv_layer);
+
+		if ((pidx == -1) && (lidx == -1) && (fidx == -1)) {
+			BKE_reportf(reports, RPT_ERROR,
+			            "No UV layer named \"%s\" found in the active object", uv_layer);
+			goto cleanup;
+		}
+	}
 
 	if (tot_materials == 0) {
 		if (is_save_internal) {
@@ -728,7 +743,7 @@ static int bake(
 		BLI_assert(i == tot_highpoly);
 
 		/* populate the pixel array with the face data */
-		RE_bake_pixels_populate(me_low, pixel_array_low, num_pixels, &bake_images);
+		RE_bake_pixels_populate(me_low, pixel_array_low, num_pixels, &bake_images, uv_layer);
 
 		ob_low->restrictflag |= OB_RESTRICT_RENDER;
 
@@ -769,7 +784,7 @@ static int bake(
 		me_low = BKE_mesh_new_from_object(bmain, scene, ob_low, 1, 2, 1, 0);
 
 		/* populate the pixel array with the face data */
-		RE_bake_pixels_populate(me_low, pixel_array_low, num_pixels, &bake_images);
+		RE_bake_pixels_populate(me_low, pixel_array_low, num_pixels, &bake_images, uv_layer);
 
 		/* make sure low poly renders */
 		ob_low->restrictflag &= ~OB_RESTRICT_RENDER;
@@ -825,7 +840,7 @@ static int bake(
 					}
 
 					me_nores = BKE_mesh_new_from_object(bmain, scene, ob_low, 1, 2, 1, 0);
-					RE_bake_pixels_populate(me_nores, pixel_array_low, num_pixels, &bake_images);
+					RE_bake_pixels_populate(me_nores, pixel_array_low, num_pixels, &bake_images, uv_layer);
 
 					RE_bake_normal_world_to_tangent(pixel_array_low, num_pixels, depth, result, me_nores, normal_swizzle, ob_low->obmat);
 					BKE_libblock_free(bmain, me_nores);
@@ -1003,6 +1018,8 @@ static void bake_init_api_data(wmOperator *op, bContext *C, BakeAPIRender *bkr)
 	bkr->height = RNA_int_get(op->ptr, "height");
 	bkr->identifier = "";
 
+	RNA_string_get(op->ptr, "uv_layer", bkr->uv_layer);
+
 	RNA_string_get(op->ptr, "cage", bkr->custom_cage);
 
 	if ((!is_save_internal) && bkr->is_automatic_name) {
@@ -1042,7 +1059,8 @@ static int bake_exec(bContext *C, wmOperator *op)
 		        bkr.pass_type, bkr.margin, bkr.save_mode,
 		        bkr.is_clear, bkr.is_split_materials, bkr.is_automatic_name, true,
 		        bkr.cage_extrusion, bkr.normal_space, bkr.normal_swizzle,
-		        bkr.custom_cage, bkr.filepath, bkr.width, bkr.height, bkr.identifier, bkr.sa);
+		        bkr.custom_cage, bkr.filepath, bkr.width, bkr.height, bkr.identifier, bkr.sa,
+		        bkr.uv_layer);
 	}
 	else {
 		CollectionPointerLink *link;
@@ -1054,7 +1072,8 @@ static int bake_exec(bContext *C, wmOperator *op)
 			        bkr.pass_type, bkr.margin, bkr.save_mode,
 			        is_clear, bkr.is_split_materials, bkr.is_automatic_name, false,
 			        bkr.cage_extrusion, bkr.normal_space, bkr.normal_swizzle,
-			        bkr.custom_cage, bkr.filepath, bkr.width, bkr.height, bkr.identifier, bkr.sa);
+			        bkr.custom_cage, bkr.filepath, bkr.width, bkr.height, bkr.identifier, bkr.sa,
+			        bkr.uv_layer);
 		}
 	}
 
@@ -1082,7 +1101,8 @@ static void bake_startjob(void *bkv, short *UNUSED(stop), short *UNUSED(do_updat
 		        bkr->pass_type, bkr->margin, bkr->save_mode,
 		        bkr->is_clear, bkr->is_split_materials, bkr->is_automatic_name, true,
 		        bkr->cage_extrusion, bkr->normal_space, bkr->normal_swizzle,
-		        bkr->custom_cage, bkr->filepath, bkr->width, bkr->height, bkr->identifier, bkr->sa);
+		        bkr->custom_cage, bkr->filepath, bkr->width, bkr->height, bkr->identifier, bkr->sa,
+		        bkr->uv_layer);
 	}
 	else {
 		CollectionPointerLink *link;
@@ -1094,7 +1114,8 @@ static void bake_startjob(void *bkv, short *UNUSED(stop), short *UNUSED(do_updat
 			        bkr->pass_type, bkr->margin, bkr->save_mode,
 			        is_clear, bkr->is_split_materials, bkr->is_automatic_name, false,
 			        bkr->cage_extrusion, bkr->normal_space, bkr->normal_swizzle,
-			        bkr->custom_cage, bkr->filepath, bkr->width, bkr->height, bkr->identifier, bkr->sa);
+			        bkr->custom_cage, bkr->filepath, bkr->width, bkr->height, bkr->identifier, bkr->sa,
+			        bkr->ub_layer);
 
 			if (bkr->result == OPERATOR_CANCELLED)
 				return;
@@ -1273,4 +1294,5 @@ void OBJECT_OT_bake(wmOperatorType *ot)
 	                "Split baked maps per material, using material name in output file (external only)");
 	RNA_def_boolean(ot->srna, "use_automatic_name", false, "Automatic Name",
 	                "Automatically name the output file with the pass type");
+	RNA_def_string(ot->srna, "uv_layer", NULL, 0, MAX_NAME, "UV layer to use, active as default");
 }
