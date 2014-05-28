@@ -2304,10 +2304,13 @@ static void SCREEN_OT_screen_set(wmOperatorType *ot)
 
 
 /* function to be called outside UI context, or for redo */
-static int screen_full_area_exec(bContext *C, wmOperator *UNUSED(op))
+static int screen_maximize_area_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	bScreen *screen = CTX_wm_screen(C);
 	ScrArea *sa = NULL;
+
+	if (screen->full == SCREENFULLSCREEN)
+		return OPERATOR_CANCELLED;
 	
 	/* search current screen for 'fullscreen' areas */
 	/* prevents restoring info header, when mouse is over it */
@@ -2317,23 +2320,20 @@ static int screen_full_area_exec(bContext *C, wmOperator *UNUSED(op))
 	
 	if (sa == NULL) sa = CTX_wm_area(C);
 	
-	ED_screen_full_toggle(C, CTX_wm_window(C), sa);
+	ED_screen_maximize_toggle(C, CTX_wm_window(C), sa);
 	return OPERATOR_FINISHED;
 }
 
 static void SCREEN_OT_screen_full_area(wmOperatorType *ot)
 {
-	ot->name = "Toggle Full Screen";
-	ot->description = "Toggle display selected area as fullscreen";
+	ot->name = "Toggle Maximize Area";
+	ot->description = "Toggle display selected area as maximized";
 	ot->idname = "SCREEN_OT_screen_full_area";
 	
-	ot->exec = screen_full_area_exec;
+	ot->exec = screen_maximize_area_exec;
 	ot->poll = ED_operator_areaactive;
 	ot->flag = 0;
-	
 }
-
-
 
 /* ************** join area operator ********************************************** */
 

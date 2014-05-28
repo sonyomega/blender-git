@@ -295,7 +295,7 @@ bool WM_init_game(bContext *C)
 
 		/* full screen the area */
 		if (!sa->full) {
-			ED_screen_full_toggle(C, win, sa);
+			ED_screen_maximize_toggle(C, win, sa);
 		}
 
 		/* Fullscreen */

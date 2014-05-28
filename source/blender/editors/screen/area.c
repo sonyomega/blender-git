@@ -1160,7 +1160,8 @@ static void region_rect_recursive(wmWindow *win, ScrArea *sa, ARegion *ar, rcti 
 		 * must be minimum '4' */
 	}
 	else {
-		region_azone_add(sa, ar, alignment);
+		if (win->screen->full != SCREENFULLSCREEN)
+			region_azone_add(sa, ar, alignment);
 	}
 
 	region_rect_recursive(win, sa, ar->next, remainder, quad);

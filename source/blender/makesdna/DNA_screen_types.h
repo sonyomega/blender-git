@@ -205,6 +205,7 @@ typedef struct ScrArea {
 	
 	ScrVert *v1, *v2, *v3, *v4;		/* ordered (bl, tl, tr, br) */
 	bScreen *full;			/* if area==full, this is the parent */
+	bScreen *fullclean;	/* tmp */
 
 	rcti totrct;			/* rect bound by v1 v2 v3 v4 */
 
@@ -247,7 +248,8 @@ typedef struct ARegion {
 	short do_draw_overlay;		/* private, cached notifier events */
 	short swap;					/* private, indicator to survive swap-exchange */
 	short overlap;				/* private, set for indicate drawing overlapped */
-	short pad[2];
+	short flagfullscreen;		/* temporary copy of flag settings for clean fullscreen */
+	short pad;
 	
 	struct ARegionType *type;	/* callbacks for this region type */
 	
@@ -277,6 +279,7 @@ typedef struct ARegion {
 #define AREA_TEMP_INFO			8
 #define AREA_FLAG_DRAWSPLIT_H	16
 #define AREA_FLAG_DRAWSPLIT_V	32
+#define AREA_FLAG_WASFULLSCREEN	64
 
 #define EDGEWIDTH	1
 #define AREAGRID	4
@@ -288,8 +291,11 @@ typedef struct ARegion {
 #define HEADERTOP	2
 
 /* screen->full */
-#define SCREENNORMAL	0
-#define SCREENFULL		1
+enum {
+	SCREENNORMAL     = 0,
+	SCREENMAXIMIZED  = 1,
+	SCREENFULLSCREEN = 2,
+};
 
 /* Panel->flag */
 enum {

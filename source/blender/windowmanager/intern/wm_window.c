@@ -595,7 +595,7 @@ int wm_window_duplicate_exec(bContext *C, wmOperator *UNUSED(op))
 }
 
 
-/* fullscreen operator callback */
+/* fullscreen window operator callback */
 int wm_window_fullscreen_toggle_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	wmWindow *window = CTX_wm_window(C);
@@ -614,6 +614,61 @@ int wm_window_fullscreen_toggle_exec(bContext *C, wmOperator *UNUSED(op))
 	
 }
 
+int wm_area_fullscreen_toggle_exec(bContext *C, wmOperator *UNUSED(op))
+{
+	wmWindow *win = CTX_wm_window(C);
+	GHOST_TWindowState state;
+	bScreen *screen = CTX_wm_screen(C);
+	ScrArea *sa = NULL;
+	bool activate = false;
+
+	if (G.background)
+		return OPERATOR_CANCELLED;
+
+	if (screen->full == SCREENMAXIMIZED)
+		return OPERATOR_CANCELLED;
+
+	/* FullScreen or Normal */
+	state = GHOST_GetWindowState(win->ghostwin);
+
+	/* search current screen for 'fullscreen' areas */
+	/* prevents restoring info header, when mouse is over it */
+	for (sa = screen->areabase.first; sa; sa = sa->next) {
+		if (sa->fullclean) break;
+	}
+
+	/* go fullscreen */
+	if (sa == NULL) {
+		sa = CTX_wm_area(C);
+		activate = true;
+
+		if (state == GHOST_kWindowStateFullScreen)
+			sa->flag |= AREA_FLAG_WASFULLSCREEN;
+		else
+			sa->flag &= ~AREA_FLAG_WASFULLSCREEN;
+	}
+	else {
+		activate = false;
+	}
+
+	/* go to fullscreen area */
+	ED_screen_fullscreen_toggle(C, CTX_wm_window(C), sa);
+
+	/* go to fullscreen window */
+	if (activate) {
+		if (state != GHOST_kWindowStateFullScreen) {
+			GHOST_SetWindowState(win->ghostwin, GHOST_kWindowStateFullScreen);
+		}
+	}
+	else {
+		if (((sa->flag & AREA_FLAG_WASFULLSCREEN)) &&
+		    (state == GHOST_kWindowStateFullScreen)) {
+				GHOST_SetWindowState(win->ghostwin, GHOST_kWindowStateNormal);
+		}
+	}
+
+	return OPERATOR_FINISHED;
+}
 
 /* ************ events *************** */
 
