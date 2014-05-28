@@ -1918,17 +1918,17 @@ ScrArea *ED_screen_fullscreen_toggle(bContext *C, wmWindow *win, ScrArea *sa)
 		ED_area_headerprint(sa, NULL);
 	}
 
-	if (sa && sa->fullclean) {
+	if (sa && sa->full) {
 		ScrArea *old;
 
-		sc = sa->fullclean;       /* the old screen to restore */
+		sc = sa->full;       /* the old screen to restore */
 		oldscreen = win->screen; /* the one disappearing */
 
 		sc->full = SCREENNORMAL;
 
 		/* find old area */
 		for (old = sc->areabase.first; old; old = old->next)
-			if (old->fullclean) break;
+			if (old->full) break;
 		if (old == NULL) {
 			if (G.debug & G_DEBUG)
 				printf("%s: something wrong in areafullscreen\n", __func__);
@@ -1940,7 +1940,7 @@ ScrArea *ED_screen_fullscreen_toggle(bContext *C, wmWindow *win, ScrArea *sa)
 			ar->flag = ar->flagfullscreen;
 
 		ED_area_data_swap(old, sa);
-		old->fullclean = NULL;
+		old->full = NULL;
 
 		/* animtimer back */
 		sc->animtimer = oldscreen->animtimer;
@@ -1972,6 +1972,7 @@ ScrArea *ED_screen_fullscreen_toggle(bContext *C, wmWindow *win, ScrArea *sa)
 
 		/* copy area */
 		ED_area_data_swap(newa, sa);
+		newa->flag = sa->flag;
 
 		/* temporarily hide the side panels/header */
 		for (ar = newa->regionbase.first; ar; ar = ar->next) {
@@ -1985,8 +1986,8 @@ ScrArea *ED_screen_fullscreen_toggle(bContext *C, wmWindow *win, ScrArea *sa)
 				ar->flag |= RGN_FLAG_HIDDEN;
 		}
 
-		sa->fullclean = oldscreen;
-		newa->fullclean = oldscreen;
+		sa->full = oldscreen;
+		newa->full = oldscreen;
 
 		ED_screen_set(C, sc);
 	}

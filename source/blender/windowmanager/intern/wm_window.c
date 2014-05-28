@@ -634,7 +634,7 @@ int wm_area_fullscreen_toggle_exec(bContext *C, wmOperator *UNUSED(op))
 	/* search current screen for 'fullscreen' areas */
 	/* prevents restoring info header, when mouse is over it */
 	for (sa = screen->areabase.first; sa; sa = sa->next) {
-		if (sa->fullclean) break;
+		if (sa->full) break;
 	}
 
 	/* go fullscreen */
@@ -649,10 +649,14 @@ int wm_area_fullscreen_toggle_exec(bContext *C, wmOperator *UNUSED(op))
 	}
 	else {
 		activate = false;
+		printf("%s : %s\n", __func__, (sa->flag & AREA_FLAG_WASFULLSCREEN) ? "was_fullscreen" : "was_windowed");
 	}
 
 	/* go to fullscreen area */
-	ED_screen_fullscreen_toggle(C, CTX_wm_window(C), sa);
+	sa = ED_screen_fullscreen_toggle(C, CTX_wm_window(C), sa);
+
+	if (activate == false)
+		printf("[recap] : %s\n", (sa->flag & AREA_FLAG_WASFULLSCREEN) ? "was_fullscreen" : "was_windowed");
 
 	/* go to fullscreen window */
 	if (activate) {
@@ -661,7 +665,7 @@ int wm_area_fullscreen_toggle_exec(bContext *C, wmOperator *UNUSED(op))
 		}
 	}
 	else {
-		if (((sa->flag & AREA_FLAG_WASFULLSCREEN)) &&
+		if (((sa->flag & AREA_FLAG_WASFULLSCREEN) == 0) &&
 		    (state == GHOST_kWindowStateFullScreen)) {
 				GHOST_SetWindowState(win->ghostwin, GHOST_kWindowStateNormal);
 		}

@@ -205,7 +205,6 @@ typedef struct ScrArea {
 	
 	ScrVert *v1, *v2, *v3, *v4;		/* ordered (bl, tl, tr, br) */
 	bScreen *full;			/* if area==full, this is the parent */
-	bScreen *fullclean;	/* tmp */
 
 	rcti totrct;			/* rect bound by v1 v2 v3 v4 */
 
