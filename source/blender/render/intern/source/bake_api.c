@@ -158,11 +158,55 @@ void RE_bake_margin(ImBuf *ibuf, char *mask, const int margin)
 		IMB_rectfill_alpha(ibuf, 1.0f);
 }
 
+
 /**
  * This function returns the coordinate and normal of a barycentric u,v for a face defined by the primitive_id index.
+ * The returned normal is actually the direction from the same barycentric coordinate in the cage to the base mesh
+ * The returned coordinate is the point in the cage mesh
  */
-static void calc_point_from_barycentric(
-        TriTessFace *triangles, int primitive_id, float u, float v, float cage_extrusion,
+static void calc_point_from_barycentric_cage(
+        TriTessFace *triangles_low, TriTessFace *triangles_cage,
+		float mat_low[4][4], float mat_cage[4][4],
+        int primitive_id, float u, float v,
+        float r_co[3], float r_dir[3])
+{
+	float data[2][3][3];
+	float coord[2][3];
+	float dir[3];
+	int i;
+
+	TriTessFace *triangle[2];
+
+	triangle[0] = &triangles_low[primitive_id];
+	triangle[1] = &triangles_cage[primitive_id];
+
+	for (i = 0; i < 2; i++) {
+		copy_v3_v3(data[i][0], triangle[i]->mverts[0]->co);
+		copy_v3_v3(data[i][1], triangle[i]->mverts[1]->co);
+		copy_v3_v3(data[i][2], triangle[i]->mverts[2]->co);
+		interp_barycentric_tri_v3(data[i], u, v, coord[i]);
+	}
+
+	/* convert from local to world space */
+	mul_m4_v3(mat_low, coord[0]);
+	mul_m4_v3(mat_cage, coord[1]);
+
+	sub_v3_v3v3(dir, coord[0], coord[1]);
+	normalize_v3(dir);
+
+	copy_v3_v3(r_co, coord[1]);
+	copy_v3_v3(r_dir, dir);
+}
+
+/**
+ * This function returns the coordinate and normal of a barycentric u,v for a face defined by the primitive_id index.
+ * The returned coordinate is extruded along the normal by cage_extrusion
+ */
+static void calc_point_from_barycentric_extrusion(
+        TriTessFace *triangles,
+		float mat[4][4], float imat[4][4],
+		int primitive_id, float u, float v,
+		float cage_extrusion,
         float r_co[3], float r_dir[3])
 {
 	float data[3][3];
@@ -188,8 +232,13 @@ static void calc_point_from_barycentric(
 
 	add_v3_v3(coord, cage);
 
-	normalize_v3_v3(dir, dir);
+	normalize_v3(dir);
 	negate_v3(dir);
+
+	/* convert from local to world space */
+	mul_m4_v3(mat, coord);
+	mul_transposed_mat3_m4_v3(imat, dir);
+	normalize_v3(dir);
 
 	copy_v3_v3(r_co, coord);
 	copy_v3_v3(r_dir, dir);
@@ -379,19 +428,21 @@ static void mesh_calc_tri_tessface(
 
 void RE_bake_pixels_populate_from_objects(
         struct Mesh *me_low, BakePixel pixel_array_from[],
-        BakeHighPolyData highpoly[], const int tot_highpoly, const int num_pixels,
-        const float cage_extrusion, float mat_low[4][4])
+        BakeHighPolyData highpoly[], const int tot_highpoly, const int num_pixels, const bool is_custom_cage,
+        const float cage_extrusion, float mat_low[4][4], float mat_cage[4][4], struct Mesh *me_cage)
 {
 	int i;
 	int primitive_id;
 	float u, v;
 	float imat_low [4][4];
+	bool is_cage = me_cage != NULL;
 
 	DerivedMesh **dm_highpoly;
 	BVHTreeFromMesh *treeData;
 
 	/* Note: all coordinates are in local space */
 	TriTessFace *tris_low;
+	TriTessFace *tris_cage = NULL;
 	TriTessFace **tris_high;
 
 	/* assume all lowpoly tessfaces can be quads */
@@ -399,10 +450,15 @@ void RE_bake_pixels_populate_from_objects(
 	tris_high = MEM_mallocN(sizeof(TriTessFace *) * tot_highpoly, "MVerts Highpoly Mesh Array");
 
 	/* assume all highpoly tessfaces are triangles */
-	dm_highpoly = MEM_callocN(sizeof(DerivedMesh *) * tot_highpoly, "Highpoly Derived Meshes");
+	dm_highpoly = MEM_mallocN(sizeof(DerivedMesh *) * tot_highpoly, "Highpoly Derived Meshes");
 	treeData = MEM_callocN(sizeof(BVHTreeFromMesh) * tot_highpoly, "Highpoly BVH Trees");
 
 	mesh_calc_tri_tessface(tris_low, me_low, false, NULL);
+
+	if (is_cage) {
+		tris_cage = MEM_mallocN(sizeof(TriTessFace) * (me_low->totface * 2), "MVerts Cage Mesh");
+		mesh_calc_tri_tessface(tris_cage, me_cage, false, NULL);
+	}
 
 	invert_m4_m4(imat_low, mat_low);
 
@@ -439,12 +495,12 @@ void RE_bake_pixels_populate_from_objects(
 		v = pixel_array_from[i].uv[1];
 
 		/* calculate from low poly mesh cage */
-		calc_point_from_barycentric(tris_low, primitive_id, u, v, cage_extrusion, co, dir);
-
-		/* convert from local to world space */
-		mul_m4_v3(mat_low, co);
-		mul_transposed_mat3_m4_v3(imat_low, dir);
-		normalize_v3(dir);
+		if (is_custom_cage)
+			calc_point_from_barycentric_cage(tris_low, tris_cage, mat_low, mat_cage, primitive_id, u, v, co, dir);
+		else if(is_cage)
+			calc_point_from_barycentric_extrusion(tris_cage, mat_low, imat_low, primitive_id, u, v, cage_extrusion, co, dir);
+		else
+			calc_point_from_barycentric_extrusion(tris_low, mat_low, imat_low, primitive_id, u, v, cage_extrusion, co, dir);
 
 		/* cast ray */
 		if (!cast_ray_highpoly(treeData, tris_high, highpoly, co, dir, i, tot_highpoly,
@@ -468,6 +524,9 @@ cleanup:
 	MEM_freeN(tris_high);
 	MEM_freeN(treeData);
 	MEM_freeN(dm_highpoly);
+
+	if (is_cage)
+		MEM_freeN(tris_cage);
 }
 
 static void bake_differentials(BakeDataZSpan *bd, const float *uv1, const float *uv2, const float *uv3)
