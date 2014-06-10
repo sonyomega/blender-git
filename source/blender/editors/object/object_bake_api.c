@@ -558,11 +558,7 @@ static int bake(
 
 	if (uv_layer && uv_layer[0] != '\0') {
 		Mesh *me = (Mesh *)ob_low->data;
-		const int pidx = CustomData_get_named_layer(&me->pdata, CD_MTEXPOLY, uv_layer);
-		const int lidx = CustomData_get_named_layer(&me->ldata, CD_MLOOPUV, uv_layer);
-		const int fidx = CustomData_get_named_layer(&me->fdata, CD_MTFACE, uv_layer);
-
-		if ((pidx == -1) && (lidx == -1) && (fidx == -1)) {
+		if (CustomData_get_named_layer(&me->ldata, CD_MLOOPUV, uv_layer) == -1) {
 			BKE_reportf(reports, RPT_ERROR,
 			            "No UV layer named \"%s\" found in the active object", uv_layer);
 			goto cleanup;
