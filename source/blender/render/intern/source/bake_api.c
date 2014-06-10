@@ -207,14 +207,17 @@ static void calc_point_from_barycentric_extrusion(
         float mat[4][4], float imat[4][4],
         int primitive_id, float u, float v,
         float cage_extrusion,
-        float r_co[3], float r_dir[3])
+        float r_co[3], float r_dir[3],
+        const bool is_cage)
 {
 	float data[3][3];
 	float coord[3];
 	float dir[3];
 	float cage[3];
+	bool is_smooth;
 
 	TriTessFace *triangle = &triangles[primitive_id];
+	is_smooth = triangle->is_smooth || is_cage;
 
 	copy_v3_v3(data[0], triangle->mverts[0]->co);
 	copy_v3_v3(data[1], triangle->mverts[1]->co);
@@ -222,12 +225,17 @@ static void calc_point_from_barycentric_extrusion(
 
 	interp_barycentric_tri_v3(data, u, v, coord);
 
-	normal_short_to_float_v3(data[0], triangle->mverts[0]->no);
-	normal_short_to_float_v3(data[1], triangle->mverts[1]->no);
-	normal_short_to_float_v3(data[2], triangle->mverts[2]->no);
+	if (is_smooth) {
+		normal_short_to_float_v3(data[0], triangle->mverts[0]->no);
+		normal_short_to_float_v3(data[1], triangle->mverts[1]->no);
+		normal_short_to_float_v3(data[2], triangle->mverts[2]->no);
 
-	interp_barycentric_tri_v3(data, u, v, dir);
-	normalize_v3(dir);
+		interp_barycentric_tri_v3(data, u, v, dir);
+		normalize_v3(dir);
+	}
+	else {
+		copy_v3_v3(dir, triangle->normal);
+	}
 
 	mul_v3_v3fl(cage, dir, cage_extrusion);
 	add_v3_v3(coord, cage);
@@ -437,25 +445,35 @@ void RE_bake_pixels_populate_from_objects(
 	float imat_low [4][4];
 	bool is_cage = me_cage != NULL;
 
+	DerivedMesh *dm_low = NULL;
 	DerivedMesh **dm_highpoly;
 	BVHTreeFromMesh *treeData;
 
 	/* Note: all coordinates are in local space */
-	TriTessFace *tris_low;
+	TriTessFace *tris_low = NULL;
 	TriTessFace *tris_cage = NULL;
 	TriTessFace **tris_high;
 
 	/* assume all lowpoly tessfaces can be quads */
-	tris_low = MEM_mallocN(sizeof(TriTessFace) * (me_low->totface * 2), "MVerts Lowpoly Mesh");
 	tris_high = MEM_mallocN(sizeof(TriTessFace *) * tot_highpoly, "MVerts Highpoly Mesh Array");
 
 	/* assume all highpoly tessfaces are triangles */
 	dm_highpoly = MEM_mallocN(sizeof(DerivedMesh *) * tot_highpoly, "Highpoly Derived Meshes");
 	treeData = MEM_callocN(sizeof(BVHTreeFromMesh) * tot_highpoly, "Highpoly BVH Trees");
 
-	mesh_calc_tri_tessface(tris_low, me_low, false, NULL);
+	if (!is_cage) {
+		dm_low = CDDM_from_mesh(me_low);
+		tris_low = MEM_mallocN(sizeof(TriTessFace) * (me_low->totface * 2), "MVerts Lowpoly Mesh");
+		mesh_calc_tri_tessface(tris_low, me_low, true, dm_low);
+	}
+	else if (is_custom_cage) {
+		tris_low = MEM_mallocN(sizeof(TriTessFace) * (me_low->totface * 2), "MVerts Lowpoly Mesh");
+		mesh_calc_tri_tessface(tris_low, me_low, false, NULL);
 
-	if (is_cage) {
+		tris_cage = MEM_mallocN(sizeof(TriTessFace) * (me_low->totface * 2), "MVerts Cage Mesh");
+		mesh_calc_tri_tessface(tris_cage, me_cage, false, NULL);
+	}
+	else {
 		tris_cage = MEM_mallocN(sizeof(TriTessFace) * (me_low->totface * 2), "MVerts Cage Mesh");
 		mesh_calc_tri_tessface(tris_cage, me_cage, false, NULL);
 	}
@@ -499,10 +517,10 @@ void RE_bake_pixels_populate_from_objects(
 			calc_point_from_barycentric_cage(tris_low, tris_cage, mat_low, mat_cage, primitive_id, u, v, co, dir);
 		}
 		else if (is_cage) {
-			calc_point_from_barycentric_extrusion(tris_cage, mat_low, imat_low, primitive_id, u, v, cage_extrusion, co, dir);
+			calc_point_from_barycentric_extrusion(tris_cage, mat_low, imat_low, primitive_id, u, v, cage_extrusion, co, dir, true);
 		}
 		else {
-			calc_point_from_barycentric_extrusion(tris_low, mat_low, imat_low, primitive_id, u, v, cage_extrusion, co, dir);
+			calc_point_from_barycentric_extrusion(tris_low, mat_low, imat_low, primitive_id, u, v, cage_extrusion, co, dir, false);
 		}
 
 		/* cast ray */
@@ -523,13 +541,19 @@ cleanup:
 		MEM_freeN(tris_high[i]);
 	}
 
-	MEM_freeN(tris_low);
 	MEM_freeN(tris_high);
 	MEM_freeN(treeData);
 	MEM_freeN(dm_highpoly);
 
-	if (is_cage)
+	if (dm_low) {
+		dm_low->release(dm_low);
+	}
+	if (tris_low) {
+		MEM_freeN(tris_low);
+	}
+	if (tris_cage) {
 		MEM_freeN(tris_cage);
+	}
 }
 
 static void bake_differentials(BakeDataZSpan *bd, const float *uv1, const float *uv2, const float *uv3)
