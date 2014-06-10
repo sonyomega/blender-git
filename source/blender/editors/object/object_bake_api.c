@@ -647,7 +647,9 @@ static int bake(
 	me_low = BKE_mesh_new_from_object(bmain, scene, ob_low, 1, 2, 1, 0);
 
 	/* populate the pixel array with the face data */
-	RE_bake_pixels_populate(me_low, pixel_array_low, num_pixels, &bake_images);
+	if ((is_selected_to_active && (ob_cage == NULL) && is_cage) == false)
+		RE_bake_pixels_populate(me_low, pixel_array_low, num_pixels, &bake_images);
+	/* else populate the pixel array with the 'cage' mesh (the smooth version of the mesh)  */
 
 	if (is_selected_to_active) {
 		CollectionPointerLink *link;
@@ -690,6 +692,7 @@ static int bake(
 
 			/* get the cage mesh as it arrives in the renderer */
 			me_cage = BKE_mesh_new_from_object(bmain, scene, ob_low, 1, 2, 1, 0);
+			RE_bake_pixels_populate(me_cage, pixel_array_low, num_pixels, &bake_images);
 		}
 
 		highpoly = MEM_callocN(sizeof(BakeHighPolyData) * tot_highpoly, "bake high poly objects");
