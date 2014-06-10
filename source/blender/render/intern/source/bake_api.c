@@ -166,7 +166,7 @@ void RE_bake_margin(ImBuf *ibuf, char *mask, const int margin)
  */
 static void calc_point_from_barycentric_cage(
         TriTessFace *triangles_low, TriTessFace *triangles_cage,
-		float mat_low[4][4], float mat_cage[4][4],
+        float mat_low[4][4], float mat_cage[4][4],
         int primitive_id, float u, float v,
         float r_co[3], float r_dir[3])
 {
@@ -204,9 +204,9 @@ static void calc_point_from_barycentric_cage(
  */
 static void calc_point_from_barycentric_extrusion(
         TriTessFace *triangles,
-		float mat[4][4], float imat[4][4],
-		int primitive_id, float u, float v,
-		float cage_extrusion,
+        float mat[4][4], float imat[4][4],
+        int primitive_id, float u, float v,
+        float cage_extrusion,
         float r_co[3], float r_dir[3])
 {
 	float data[3][3];
