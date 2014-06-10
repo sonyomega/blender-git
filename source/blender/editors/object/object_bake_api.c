@@ -324,7 +324,7 @@ static bool bake_object_check(Object *ob, ReportList *reports)
 			}
 			else {
 				BKE_reportf(reports, RPT_ERROR,
-				            "Unitialized image \"%s\" from object \"%s\"",
+				            "Uninitialized image \"%s\" from object \"%s\"",
 				            image->id.name + 2, ob->id.name + 2);
 
 				BKE_image_release_ibuf(image, ibuf, lock);
