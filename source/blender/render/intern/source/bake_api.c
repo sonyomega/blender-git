@@ -495,12 +495,15 @@ void RE_bake_pixels_populate_from_objects(
 		v = pixel_array_from[i].uv[1];
 
 		/* calculate from low poly mesh cage */
-		if (is_custom_cage)
+		if (is_custom_cage) {
 			calc_point_from_barycentric_cage(tris_low, tris_cage, mat_low, mat_cage, primitive_id, u, v, co, dir);
-		else if(is_cage)
+		}
+		else if (is_cage) {
 			calc_point_from_barycentric_extrusion(tris_cage, mat_low, imat_low, primitive_id, u, v, cage_extrusion, co, dir);
-		else
+		}
+		else {
 			calc_point_from_barycentric_extrusion(tris_low, mat_low, imat_low, primitive_id, u, v, cage_extrusion, co, dir);
+		}
 
 		/* cast ray */
 		if (!cast_ray_highpoly(treeData, tris_high, highpoly, co, dir, i, tot_highpoly,
