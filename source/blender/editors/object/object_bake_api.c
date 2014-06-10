@@ -1294,5 +1294,5 @@ void OBJECT_OT_bake(wmOperatorType *ot)
 	                "Split baked maps per material, using material name in output file (external only)");
 	RNA_def_boolean(ot->srna, "use_automatic_name", false, "Automatic Name",
 	                "Automatically name the output file with the pass type");
-	RNA_def_string(ot->srna, "uv_layer", NULL, 0, MAX_NAME, "UV layer to use, active as default");
+	RNA_def_string(ot->srna, "uv_layer", NULL, 0, MAX_NAME, "UV layer to override active");
 }

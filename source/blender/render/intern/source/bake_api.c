@@ -519,8 +519,9 @@ void RE_bake_pixels_populate(
 		zbuf_alloc_span(&bd.zspan[i], bake_images->data[i].width, bake_images->data[i].height, R.clipcrop);
 	}
 
-	if (uv_layer == NULL)
+	if (uv_layer == NULL) {
 		mtface = CustomData_get_layer(&me->fdata, CD_MTFACE);
+	}
 	else {
 		int uv_id = CustomData_get_named_layer(&me->fdata, CD_MTFACE, uv_layer);
 		mtface = CustomData_get_layer_n(&me->fdata, CD_MTFACE, uv_id);
