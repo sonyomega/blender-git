@@ -227,9 +227,9 @@ static void calc_point_from_barycentric_extrusion(
 	normal_short_to_float_v3(data[2], triangle->mverts[2]->no);
 
 	interp_barycentric_tri_v3(data, u, v, dir);
-	normalize_v3_v3(cage, dir);
-	mul_v3_fl(cage, cage_extrusion);
+	normalize_v3(dir);
 
+	mul_v3_v3fl(cage, dir, cage_extrusion);
 	add_v3_v3(coord, cage);
 
 	normalize_v3(dir);
